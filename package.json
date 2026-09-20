@@ -1,6 +1,8 @@
 {
   "dependencies": {
-    "express": "^5.2.1"
+    "dotenv": "^18.0.1",
+    "express": "^5.2.1",
+    "pg": "^8.23.0"
   },
   "name": "stayhub",
   "version": "1.0.0",
@@ -11,7 +13,7 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start" : "nodemon app.js"
+    "start": "nodemon app.js"
   },
   "keywords": [],
   "author": "",
