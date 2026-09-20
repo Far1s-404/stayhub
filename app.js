@@ -166,4 +166,3 @@ else {
     console.log('stayhub is running on port 3000');
 })
 
-
