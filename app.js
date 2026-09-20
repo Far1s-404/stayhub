@@ -5,11 +5,6 @@ app.use(express.json());
 const pool = require('./db');
 
 
-const rooms = [
-    {id: 1, name: "Deluxe Room", price: 100},
-    {id: 2, name: "Suite Room", price: 200},
-    {id: 3, name: "Standard Room", price: 50}
-]
 
 const bookings = [
     {
@@ -24,48 +19,45 @@ const bookings = [
 
 app.route('/rooms')
     .get(async (req, res) => {
-        const result = await pool.query('SELECT * FROM rooms');
-        res.json(result.rows);
+        const room = await pool.query('SELECT * FROM rooms');
+        res.json(room.rows);
     })
    .post(async (req, res) => {
 
-    const result = await pool.query('INSERT INTO rooms (name, price) VALUES ($1, $2) RETURNING *', [req.body.name, req.body.price]);
-    res.status(201).json(result.rows[0]);
+    const room = await pool.query('INSERT INTO rooms (name, price) VALUES ($1, $2) RETURNING *', [req.body.name, req.body.price]);
+    res.status(201).json(room.rows[0]);
    })
 
    
 
  
 app.route('/rooms/:id')
-    .get((req, res) => {
-        const room = rooms.find(room => room.id == req.params.id);
-        if (!room) {
+    .get(async (req, res) => {
+        const room = await pool.query('SELECT * FROM rooms where id = $1', [req.params.id]);
+        if (room.rows.length == 0) {
             return res.status(404).send("Room not found");
         }
         else {
-            res.json(room);
+            res.json(room.rows[0])
         }
     })
 
 
-    .put((req, res) => {
-    const room = rooms.find(room => room.id == req.params.id);
-    if (!room) {
+    .put(async (req, res) => {
+    const room = await pool.query('UPDATE rooms SET name = $1, price =$2 WHERE id = $3 RETURNING *',[req.body.name, req.body.price, req.params.id]);
+    if (room.rows.length == 0) {
         return res.status(404).send("Room not found");
     }
     else {
-        room.name = req.body.name;
-        room.price = req.body.price;
-        res.json(room);
+        res.json(room.rows[0]);
     }
    })
-   .delete((req, res) => {
-    const roomIndex = rooms.findIndex(room => room.id == req.params.id);
-    if (roomIndex === -1) {
+   .delete(async (req, res) => {
+    const room = await pool.query('DELETE FROM rooms WHERE id = $1 RETURNING *', [req.params.id]);
+    if (room.rows.length == 0) {
         return res.status(404).send("Room not found");
     }
     else {
-        rooms.splice(roomIndex, 1);
         res.status(200).send("Room deleted successfully");
     }
    })
