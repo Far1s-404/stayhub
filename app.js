@@ -2,6 +2,8 @@ const express = require ('express');
 const app = express();
 app.use(express.json());
 
+const pool = require('./db');
+
 
 const rooms = [
     {id: 1, name: "Deluxe Room", price: 100},
@@ -21,20 +23,14 @@ const bookings = [
 
 
 app.route('/rooms')
-    .get((req, res) => {
-        res.json(rooms);
+    .get(async (req, res) => {
+        const result = await pool.query('SELECT * FROM rooms');
+        res.json(result.rows);
     })
-   .post((req, res) => {
-    
-    const newRoom = {
-    id: rooms.length + 1, 
-    name: req.body.name, 
-    price: req.body.price
-    }
+   .post(async (req, res) => {
 
-    rooms.push(newRoom);
-
-    res.status(201).json(rooms)
+    const result = await pool.query('INSERT INTO rooms (name, price) VALUES ($1, $2) RETURNING *', [req.body.name, req.body.price]);
+    res.status(201).json(result.rows[0]);
    })
 
    
