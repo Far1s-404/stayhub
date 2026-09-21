@@ -5,18 +5,6 @@ app.use(express.json());
 const pool = require('./db');
 
 
-
-const bookings = [
-    {
-        id: 1,
-        roomId: 2,
-        guestName: "Faris",
-        checkIn: "2026-10-01",
-        checkOut: "2026-10-05"
-    }
-];
-
-
 app.route('/rooms')
     .get(async (req, res) => {
         const room = await pool.query('SELECT * FROM rooms');
@@ -98,45 +86,40 @@ app.route('/bookings')
 )
     
 app.route('/bookings/:id')
-.get((req, res) => 
+.get(async (req, res) => 
     {
-const booking = bookings.find(booking => booking.id == req.params.id);
-if (!booking){
+const booking = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
+if (booking.rows.length == 0){
     return res.status(404).send("Booking not found");
 }
 else {
-    return res.json(booking);
+    return res.json(booking.rows[0]);
     }
     })
-.put((req, res) => {
-    const booking = bookings.find(booking => booking.id == req.params.id);
-    if (!booking){
+.put(async (req, res) => {
+    const booking = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
+    if (booking.rows.length == 0){
         return res.status(404).send("Booking not found");
     }
     else {
-        const conflict = bookings.some(booking => booking.id != req.params.id && booking.roomId == req.body.roomId && 
-        req.body.checkIn < booking.checkOut && req.body.checkOut > booking.checkIn
+        const conflict = await pool.query('SELECT * FROM bookings WHERE room_id = $1 AND check_in < $3 AND check_out > $2 AND id != $4' , [req.body.roomId, req.body.checkIn, req.body.checkOut, req.params.id]
     )
-        if (!conflict){
-            booking.roomId = req.body.roomId;
-            booking.guestName = req.body.guestName;
-            booking.checkIn = req.body.checkIn;
-            booking.checkOut = req.body.checkOut;
-            return res.json(booking);
-            
+        if (conflict.rows.length == 0){
+            const updateBooking = await pool.query('UPDATE bookings SET user_id = $1 , room_id = $2 , check_in = $3 , check_out = $4 WHERE id = $5 RETURNING *', [req.body.userId, req.body.roomId, req.body.checkIn, req.body.checkOut, req.params.id]);
+            return res.json(updateBooking.rows[0]);
         }
         else {
             return res.status(400).send("Room is already booked for the selected dates")
         }
     }
     })    
-.delete((req, res) => {
-    const bookingIndex = bookings.findIndex(booking => booking.id == req.params.id);
-    if (bookingIndex == -1){
+.delete(async (req, res) => {
+    const booking = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]); 
+    if (booking.rows.length == 0){
         return res.status(404).send("Booking not found");
     }
     else {
-        bookings.splice(bookingIndex,1);
+        await pool.query('DELETE FROM bookings WHERE id = $1', [req.params.id]);
         return res.status(200).send("Booking deleted successfully");
     }
 
