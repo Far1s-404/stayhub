@@ -66,32 +66,27 @@ app.route('/rooms/:id')
 
 
 app.route('/bookings')
-.get((req, res) => {
-    res.json(bookings);
+.get(async(req, res) => {
+    const bookings = await pool.query('SELECT * FROM bookings');
+    res.json(bookings.rows);
 })
 
 
 
-.post((req, res) => {
-    const room = rooms.find(room => room.id == req.body.roomId)
-    const conflict = bookings.some(booking => booking.roomId == req.body.roomId && 
-        req.body.checkIn < booking.checkOut && req.body.checkOut > booking.checkIn
+.post(async(req, res) => {
+    const room = await pool.query ('SELECT * FROM rooms where id = $1', [req.body.roomId]);
+    const conflict = await pool.query('SELECT * FROM bookings WHERE room_id = $1 AND check_in < $3 AND check_out > $2',
+         [req.body.roomId, req.body.checkIn, req.body.checkOut]
     )
-    if (!room ){
-        res.status(404).send("Room is not found")
+    if (room.rows.length == 0){
+        return res.status(404).send("Room is not found")
     }
     else {
-        if (!conflict){
-            const newBooking = {
-        id : bookings.length + 1,
-        roomId: req.body.roomId,
-        guestName: req.body.guestName,
-        checkIn: req.body.checkIn,
-        checkOut: req.body.checkOut
-            }
-        bookings.push(newBooking)
-        return res.status(201).send("Room booked successfully")
-        }
+        if (conflict.rows.length == 0){
+            const newBooking = await pool.query('INSERT INTO bookings (user_id,room_id,check_in,check_out) VALUES ($1,$2,$3,$4) RETURNING *', [req.body.userId, req.body.roomId, req.body.checkIn, req.body.checkOut]);
+            return res.status(201).json(newBooking.rows[0]);
+        } 
+       
         else {
             return res.status(400).send("Room is already booked for the selected dates")
         }
