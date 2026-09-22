@@ -1,5 +1,6 @@
 const express = require ('express');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const app = express();
 app.use(express.json());
 
@@ -157,7 +158,16 @@ app.post('/users/login', async(req, res) => {
     else {
         const isMatch = await bcrypt.compare(req.body.password, user.rows[0].password)
         if(isMatch) {
-            return res.status(200).send('logged in successfully')
+            const token = jwt.sign(
+                {userId : user.rows[0].id},
+                "secret-key"
+            );
+            
+            
+            return res.status(200).json({
+                message : "logged in successfully",
+                token : token
+            })
         }
         else {
             return res.status(401).send('Email or Password incorrect')
