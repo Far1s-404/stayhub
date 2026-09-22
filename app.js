@@ -1,4 +1,5 @@
 const express = require ('express');
+const bcrypt = require('bcrypt');
 const app = express();
 app.use(express.json());
 
@@ -128,7 +129,50 @@ else {
     })
 
 
-   app.listen(3000, () => {
+//==============password hashing ==============
+
+app.post('/users/register', async(req, res) => {
+    const name = req.body.name
+    const email = req.body.email
+    const password = req.body.password
+    
+    const saltRounds = 10
+    const hashedPassword = await bcrypt.hash(password,saltRounds)
+
+    const user = await pool.query('INSERT INTO users (name, email, password) VALUES ($1,$2,$3) RETURNING *', [name , email, hashedPassword])
+    const newUser = {
+        id : user.rows[0].id,
+        name : user.rows[0].name,
+        email : user.rows[0].email
+    }
+    return res.status(201).send(newUser)
+
+})
+
+app.post('/users/login', async(req, res) => {
+    const user = await pool.query('SELECT * FROM users WHERE email = $1', [req.body.email])
+    if (user.rows.length == 0) {
+        return res.status(401).send('Email or Password incorrect')
+    }
+    else {
+        const isMatch = await bcrypt.compare(req.body.password, user.rows[0].password)
+        if(isMatch) {
+            return res.status(200).send('logged in successfully')
+        }
+        else {
+            return res.status(401).send('Email or Password incorrect')
+        }
+    }
+    
+})
+
+
+
+
+
+    app.listen(3000, () => {
     console.log('stayhub is running on port 3000');
 })
+
+
 
