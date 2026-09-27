@@ -7,6 +7,26 @@ app.use(express.json());
 const pool = require('./db');
 
 
+function authenticateToken(req, res, next) {
+    let authHeader = req.headers['authorization']
+    if (!authHeader){
+        return res.status(401).send('Unauthorized access')
+    }
+    else {
+        authHeader = authHeader.split(' ')[1]
+        jwt.verify(authHeader, "secret-key", (err, decoded) => {
+            if (err) {
+                return res.status(401).send('Unauthorized access');
+            }
+            req.user=decoded
+            next()
+        });
+    }
+}
+
+
+
+
 app.route('/rooms')
     .get(async (req, res) => {
         const room = await pool.query('SELECT * FROM rooms');
@@ -56,14 +76,14 @@ app.route('/rooms/:id')
 
 
 app.route('/bookings')
-.get(async(req, res) => {
+.get(authenticateToken, async(req, res) => {
     const bookings = await pool.query('SELECT * FROM bookings');
     res.json(bookings.rows);
 })
 
 
 
-.post(async(req, res) => {
+.post(authenticateToken, async(req, res) => {
     const room = await pool.query ('SELECT * FROM rooms where id = $1', [req.body.roomId]);
     const conflict = await pool.query('SELECT * FROM bookings WHERE room_id = $1 AND check_in < $3 AND check_out > $2',
          [req.body.roomId, req.body.checkIn, req.body.checkOut]
@@ -73,7 +93,7 @@ app.route('/bookings')
     }
     else {
         if (conflict.rows.length == 0){
-            const newBooking = await pool.query('INSERT INTO bookings (user_id,room_id,check_in,check_out) VALUES ($1,$2,$3,$4) RETURNING *', [req.body.userId, req.body.roomId, req.body.checkIn, req.body.checkOut]);
+            const newBooking = await pool.query('INSERT INTO bookings (user_id,room_id,check_in,check_out) VALUES ($1,$2,$3,$4) RETURNING *', [req.user.userId, req.body.roomId, req.body.checkIn, req.body.checkOut]);
             return res.status(201).json(newBooking.rows[0]);
         } 
        
@@ -88,7 +108,7 @@ app.route('/bookings')
 )
     
 app.route('/bookings/:id')
-.get(async (req, res) => 
+.get(authenticateToken, async (req, res) => 
     {
 const booking = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
 if (booking.rows.length == 0){
@@ -98,7 +118,7 @@ else {
     return res.json(booking.rows[0]);
     }
     })
-.put(async (req, res) => {
+.put(authenticateToken, async (req, res) => {
     const booking = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
     if (booking.rows.length == 0){
         return res.status(404).send("Booking not found");
@@ -107,7 +127,7 @@ else {
         const conflict = await pool.query('SELECT * FROM bookings WHERE room_id = $1 AND check_in < $3 AND check_out > $2 AND id != $4' , [req.body.roomId, req.body.checkIn, req.body.checkOut, req.params.id]
     )
         if (conflict.rows.length == 0){
-            const updateBooking = await pool.query('UPDATE bookings SET user_id = $1 , room_id = $2 , check_in = $3 , check_out = $4 WHERE id = $5 RETURNING *', [req.body.userId, req.body.roomId, req.body.checkIn, req.body.checkOut, req.params.id]);
+            const updateBooking = await pool.query('UPDATE bookings SET user_id = $1 , room_id = $2 , check_in = $3 , check_out = $4 WHERE id = $5 RETURNING *', [req.user.userId, req.body.roomId, req.body.checkIn, req.body.checkOut, req.params.id]);
             return res.json(updateBooking.rows[0]);
         }
         else {
@@ -115,7 +135,7 @@ else {
         }
     }
     })    
-.delete(async (req, res) => {
+.delete(authenticateToken, async (req, res) => {
     const booking = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]); 
     if (booking.rows.length == 0){
         return res.status(404).send("Booking not found");
@@ -180,9 +200,21 @@ app.post('/users/login', async(req, res) => {
 
 
 
-    app.listen(3000, () => {
-    console.log('stayhub is running on port 3000');
+app.get('/users/me' ,authenticateToken, (req, res) => {
+    res.json({
+        userId: req.user.userId
+    })
 })
 
 
 
+
+
+
+
+
+
+
+    app.listen(3000, () => {
+    console.log('stayhub is running on port 3000');
+})
