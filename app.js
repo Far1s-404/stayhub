@@ -53,7 +53,7 @@ app.route('/rooms/:id')
     })
 
 
-    .put(async (req, res) => {
+    .put(authenticateToken, async (req, res) => {
     const room = await pool.query('UPDATE rooms SET name = $1, price =$2 WHERE id = $3 RETURNING *',[req.body.name, req.body.price, req.params.id]);
     if (room.rows.length == 0) {
         return res.status(404).send("Room not found");
@@ -62,7 +62,7 @@ app.route('/rooms/:id')
         res.json(room.rows[0]);
     }
    })
-   .delete(async (req, res) => {
+   .delete(authenticateToken, async (req, res) => {
     const room = await pool.query('DELETE FROM rooms WHERE id = $1 RETURNING *', [req.params.id]);
     if (room.rows.length == 0) {
         return res.status(404).send("Room not found");
@@ -77,8 +77,9 @@ app.route('/rooms/:id')
 
 app.route('/bookings')
 .get(authenticateToken, async(req, res) => {
-    const bookings = await pool.query('SELECT * FROM bookings');
-    res.json(bookings.rows);
+   const bookings = await pool.query('SELECT * FROM bookings WHERE user_id = $1', [req.user.userId]);
+    return res.json(bookings.rows);
+    
 })
 
 
@@ -110,7 +111,7 @@ app.route('/bookings')
 app.route('/bookings/:id')
 .get(authenticateToken, async (req, res) => 
     {
-const booking = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
+const booking = await pool.query('SELECT * FROM bookings WHERE id = $1 AND user_id=$2', [req.params.id ,req.user.userId]);
 if (booking.rows.length == 0){
     return res.status(404).send("Booking not found");
 }
@@ -119,7 +120,7 @@ else {
     }
     })
 .put(authenticateToken, async (req, res) => {
-    const booking = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]);
+    const booking = await pool.query('SELECT * FROM bookings WHERE id = $1 AAND user_id=$2', [req.params.id ,req.user.userId]);
     if (booking.rows.length == 0){
         return res.status(404).send("Booking not found");
     }
@@ -136,7 +137,7 @@ else {
     }
     })    
 .delete(authenticateToken, async (req, res) => {
-    const booking = await pool.query('SELECT * FROM bookings WHERE id = $1', [req.params.id]); 
+    const booking = await pool.query('SELECT * FROM bookings WHERE id = $1 AND user_id = $2 ', [req.params.id, req.user.userId]); 
     if (booking.rows.length == 0){
         return res.status(404).send("Booking not found");
     }
