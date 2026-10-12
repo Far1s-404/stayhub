@@ -151,14 +151,16 @@ app.route('/bookings')
 
     
     const room = await pool.query ('SELECT * FROM rooms where id = $1', [req.body.roomId]);
-    const conflict = await pool.query('SELECT * FROM bookings WHERE room_id = $1 AND check_in < $3 AND check_out > $2',
-         [req.body.roomId, req.body.checkIn, req.body.checkOut]
-    )
+    
     if (room.rows.length == 0){
         return res.status(404).send("Room is not found")
     }
-    else {
-        if (conflict.rows.length == 0){
+   
+    const conflict = await pool.query('SELECT * FROM bookings WHERE room_id = $1 AND check_in < $3 AND check_out > $2',
+         [req.body.roomId, req.body.checkIn, req.body.checkOut]
+    )
+        
+    if (conflict.rows.length == 0){
             const newBooking = await pool.query('INSERT INTO bookings (user_id,room_id,check_in,check_out) VALUES ($1,$2,$3,$4) RETURNING *', [req.user.userId, req.body.roomId, req.body.checkIn, req.body.checkOut]);
             return res.status(201).json(newBooking.rows[0]);
         } 
@@ -170,7 +172,7 @@ app.route('/bookings')
     }
     
     
-        }
+    
 )
     
 app.route('/bookings/:id')
