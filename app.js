@@ -247,25 +247,70 @@ return res.json(booking.rows[0]);
         
     })
 
-
-//==============password hashing ==============
-
-app.post('/users/register', async(req, res) => {
-    const name = req.body.name
-    const email = req.body.email
-    const password = req.body.password
     
+    //==============password hashing ==============
+    
+    app.post('/users/register', async(req, res) => {
+        const name = req.body.name
+        const email = req.body.email
+        const password = req.body.password
+        
+        //type checking and null checking
+        if (typeof email != 'string'){
+            return res.status(400).send('Invalid email')
+        }
+        if (typeof password != 'string'){
+            return res.status(400).send('Invalid password')
+        }
+        if (typeof name != 'string'){
+            return res.status(400).send('Invalid name')
+        }
+        if (email == null || email == undefined || email.trim() == ""){
+            return res.status(400).send("Email is required")
+        }
+        if (password == null || password == undefined || password.trim() == ""){
+            return res.status(400).send("Password is required")
+        }
+        if (name == null || name == undefined || name.trim() == ""){
+            return res.status(400).send("Name is required")
+        }
+        
+//name length checking
+    if (name.length < 3 || name.length > 50) {
+        return res.status(400).send("Name must be between 3 and 50 characters long");
+    }
+//email format checking
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return res.status(400).send("Invalid email format");
+    }
+
+//password length checking
+    if (password.length < 8) {
+        return res.status(400).send("Password must be at least 8 characters long");
+    }
+
+
+
     const saltRounds = 10
     const hashedPassword = await bcrypt.hash(password,saltRounds)
-
-    const user = await pool.query('INSERT INTO users (name, email, password) VALUES ($1,$2,$3) RETURNING *', [name , email, hashedPassword])
-    const newUser = {
+    try {
+        const user = await pool.query('INSERT INTO users (name, email, password) VALUES ($1,$2,$3) RETURNING *', [name , email, hashedPassword])
+        const newUser = {
         id : user.rows[0].id,
         name : user.rows[0].name,
         email : user.rows[0].email
     }
-    return res.status(201).send(newUser)
-
+    return res.status(201).json(newUser);
+    }catch (error) {
+    //error handling for duplicate email
+    if (error.code === '23505') {
+        return res.status(409).send("Email already exists");
+    } else {
+        console.error(error);   
+        return res.status(500).send("Internal server error");
+    }
+}
 })
 
 app.post('/users/login', async(req, res) => {
