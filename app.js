@@ -16,13 +16,13 @@ const pool = require('./db');
 function authenticateToken(req, res, next) {
     let authHeader = req.headers['authorization']
     if (!authHeader){
-        return res.status(401).send('Unauthorized access')
+        return res.status(401).json({ error: 'Unauthorized access' });
     }
     else {
         authHeader = authHeader.split(' ')[1]
         jwt.verify(authHeader, "secret-key", (err, decoded) => {
             if (err) {
-                return res.status(401).send('Unauthorized access');
+                return res.status(401).json({ error: 'Unauthorized access' });
             }
             req.user=decoded
             next()
@@ -40,24 +40,24 @@ app.route('/rooms')
     })
    .post(async (req, res) => {
     if(!req.body.name){
-        return res.status(400).send("Room name is required")
+        return res.status(400).json({ error: "Room name is required" })
     }
     if (typeof req.body.name != 'string'){
-        return res.status(400).send('Invalid room name')
+        return res.status(400).json({ error: "Invalid room name" })
     }
     
     if (req.body.name.trim().length < 3 || req.body.name.trim().length > 50){
-        return res.status(400).send('Room name must be between 3 and 50 characters')
+        return res.status(400).json({ error: "Room name must be between 3 and 50 characters" })
     }
     
     if(!req.body.price){
-        return res.status(400).send("Room price is required")
+        return res.status(400).json({ error: "Room price is required" })
     }   
     if(req.body.price <= 0){
-        return res.status(400).send('Invalid room price')
+        return res.status(400).json({ error: "Invalid room price" })
     }
     if (typeof req.body.price != "number"){
-        return res.status(400).send('Room price must be a valid number')
+        return res.status(400).json({ error: "Room price must be a valid number" })
     }
     const room = await pool.query('INSERT INTO rooms (name, price) VALUES ($1, $2) RETURNING *', [req.body.name, req.body.price]);
     res.status(201).json(room.rows[0]);
@@ -70,7 +70,7 @@ app.route('/rooms/:id')
     .get(async (req, res) => {
         const room = await pool.query('SELECT * FROM rooms where id = $1', [req.params.id]);
         if (room.rows.length == 0) {
-            return res.status(404).send("Room not found");
+            return res.status(404).json({ error: "Room not found" });
         }
         else {
             res.json(room.rows[0])
@@ -81,33 +81,33 @@ app.route('/rooms/:id')
     .put(authenticateToken, async (req, res) => {
         
         if (!req.body.name) {
-            return res.status(400).send("Room name is required");
+            return res.status(400).json({ error: "Room name is required" });
         }
         
         if (typeof req.body.name != "string") {
-            return res.status(400).send("Invalid room name");
+            return res.status(400).json({ error: "Invalid room name" });
         }
         
         if (req.body.name.trim().length < 3 || req.body.name.trim().length > 50){
-            return res.status(400).send('Room name must be between 3 and 50 characters')
+            return res.status(400).json({ error: "Room name must be between 3 and 50 characters" })
         }
         
         if (!req.body.price) {
-            return res.status(400).send("Room price is required");
+            return res.status(400).json({ error: "Room price is required" });
         }
         
         if (typeof req.body.price != "number") {
-            return res.status(400).send("Room price must be a valid number");
+            return res.status(400).json({ error: "Room price must be a valid number" });
         }
         
         if (req.body.price <= 0) {
-            return res.status(400).send("Invalid room price");
+            return res.status(400).json({ error: "Invalid room price" });
         }
         
         
     const room = await pool.query('UPDATE rooms SET name = $1, price =$2 WHERE id = $3 RETURNING *',[req.body.name, req.body.price, req.params.id]);
     if (room.rows.length == 0) {
-            return res.status(404).send("Room not found");
+            return res.status(404).json({ error: "Room not found" });
         }
     res.json(room.rows[0]);
 
@@ -115,10 +115,10 @@ app.route('/rooms/:id')
    .delete(authenticateToken, async (req, res) => {
     const room = await pool.query('DELETE FROM rooms WHERE id = $1 RETURNING *', [req.params.id]);
     if (room.rows.length == 0) {
-        return res.status(404).send("Room not found");
+        return res.status(404).json({ error: "Room not found" });
     }
     else {
-        res.status(200).send("Room deleted successfully");
+        res.status(200).json({ message: "Room deleted successfully" });
     }
    })
 
@@ -133,7 +133,7 @@ app.route('/bookings')
    }
    catch (error) {
     console.error(error);
-    return res.status(500).send("Internal server error");
+    return res.status(500).json({ error: "Internal server error" });
    }
 })
 
@@ -169,7 +169,7 @@ app.route('/bookings')
     const room = await pool.query ('SELECT * FROM rooms where id = $1', [req.body.roomId]);
     
     if (room.rows.length == 0){
-        return res.status(404).send("Room is not found")
+        return res.status(404).json({ error: "Room is not found" });
     }
    
     const conflict = await pool.query('SELECT * FROM bookings WHERE room_id = $1 AND check_in < $3 AND check_out > $2',
@@ -182,7 +182,7 @@ app.route('/bookings')
         } 
        
         else {
-            return res.status(400).send("Room is already booked for the selected dates")
+            return res.status(400).json({ error: "Room is already booked for the selected dates" });
         }
 
     }
@@ -195,16 +195,16 @@ app.route('/bookings/:id')
 .get(authenticateToken, async (req, res) => {  
 
 if (!req.params.id) {
-    return res.status(400).send("Booking ID is required");
+    return res.status(400).json({ error: "Booking ID is required" });
 }
 if (isNaN(req.params.id)) {
-    return res.status(400).send("Booking ID must be a number");
+    return res.status(400).json({ error: "Booking ID must be a number" });
 }
 
 
 const booking = await pool.query('SELECT * FROM bookings WHERE id = $1 AND user_id=$2', [req.params.id ,req.user.userId]);
 if (booking.rows.length == 0){
-    return res.status(404).send("Booking not found");
+    return res.status(404).json({ error: "Booking not found" });
 }
 
 return res.json(booking.rows[0]);
@@ -213,21 +213,21 @@ return res.json(booking.rows[0]);
 .put(authenticateToken, async (req, res) => {
     
     if (!req.body.checkIn || !req.body.checkOut || !req.body.roomId) {
-        return res.status(400).send("All fields are required");
+        return res.status(400).json({ error: "All fields are required" });
     }
    if (isNaN(Date.parse(req.body.checkIn)) || isNaN(Date.parse(req.body.checkOut))) {
-        return res.status(400).send("Check-in and check-out dates must be valid dates");
+        return res.status(400).json({ error: "Check-in and check-out dates must be valid dates" });
     }
     if (new Date(req.body.checkIn) >=  new Date(req.body.checkOut)) {
-        return res.status(400).send("Check-out date must be after check-in date");
+        return res.status(400).json({ error: "Check-out date must be after check-in date" });
     }    
     if (isNaN(req.body.roomId)) {
-        return res.status(400).send("Room ID must be a number");
+        return res.status(400).json({ error: "Room ID must be a number" });
     }
 
     const room = await pool.query('SELECT * FROM rooms WHERE id = $1', [req.body.roomId]);
     if (room.rows.length == 0) {
-        return res.status(404).send("Room not found");
+        return res.status(404).json({ error: "Room not found" });
     }
 
 
@@ -235,7 +235,7 @@ return res.json(booking.rows[0]);
 
     const booking = await pool.query('SELECT * FROM bookings WHERE id = $1 AND user_id=$2', [req.params.id ,req.user.userId]);
     if (booking.rows.length == 0){
-        return res.status(404).send("Booking not found");
+        return res.status(404).json({ error: "Booking not found" });
     }
     else {
         const conflict = await pool.query('SELECT * FROM bookings WHERE room_id = $1 AND check_in < $3 AND check_out > $2 AND id != $4' , [req.body.roomId, req.body.checkIn, req.body.checkOut, req.params.id]
@@ -245,18 +245,18 @@ return res.json(booking.rows[0]);
             return res.json(updateBooking.rows[0]);
         }
         else {
-            return res.status(400).send("Room is already booked for the selected dates")
+            return res.status(400).json({ error: "Room is already booked for the selected dates" });
         }
     }
     })    
 .delete(authenticateToken, async (req, res) => {
     const booking = await pool.query('SELECT * FROM bookings WHERE id = $1 AND user_id = $2 ', [req.params.id, req.user.userId]); 
     if (booking.rows.length == 0){
-        return res.status(404).send("Booking not found");
+        return res.status(404).json({ error: "Booking not found" });
     }
     else {
         await pool.query('DELETE FROM bookings WHERE id = $1', [req.params.id]);
-        return res.status(200).send("Booking deleted successfully"  );
+        return res.status(200).json({ message: "Booking deleted successfully" });
     }
 
 
@@ -273,37 +273,37 @@ return res.json(booking.rows[0]);
         
         //type checking and null checking
         if (typeof email != 'string'){
-            return res.status(400).send('Invalid email')
+            return res.status(400).json({ error: 'Invalid email' })
         }
         if (typeof password != 'string'){
-            return res.status(400).send('Invalid password')
+            return res.status(400).json({ error: 'Invalid password' })
         }
         if (typeof name != 'string'){
-            return res.status(400).send('Invalid name')
+            return res.status(400).json({ error: 'Invalid name' })
         }
         if (email == null || email == undefined || email.trim() == ""){
-            return res.status(400).send("Email is required")
+            return res.status(400).json({ error: "Email is required" })
         }
         if (password == null || password == undefined || password.trim() == ""){
-            return res.status(400).send("Password is required")
+            return res.status(400).json({ error: "Password is required" })
         }
         if (name == null || name == undefined || name.trim() == ""){
-            return res.status(400).send("Name is required")
+            return res.status(400).json({ error: "Name is required" })
         }
         
 //name length checking
     if (name.length < 3 || name.length > 50) {
-        return res.status(400).send("Name must be between 3 and 50 characters long");
+        return res.status(400).json({ error: "Name must be between 3 and 50 characters long" });
     }
 //email format checking
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-        return res.status(400).send("Invalid email format");
+        return res.status(400).json({ error: "Invalid email format" });
     }
 
 //password length checking
     if (password.length < 8) {
-        return res.status(400).send("Password must be at least 8 characters long");
+        return res.status(400).json({ error: "Password must be at least 8 characters long" });
     }
 //existing email checking
     const existingUser = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -327,10 +327,10 @@ return res.json(booking.rows[0]);
     }catch (error) {
     //error handling for duplicate email
     if (error.code === '23505') {
-        return res.status(409).send("Email already exists");
+        return res.status(409).json({ error: "Email already exists" });
     } else {
         console.error(error);   
-        return res.status(500).send("Internal server error");
+        return res.status(500).json({ error: "Internal server error" });
     }
 }
 })
@@ -357,7 +357,7 @@ app.post('/users/login', async(req, res) => {
             })
         }
         else {
-            return res.status(401).send('Email or Password incorrect')
+            return res.status(401).json({ error: 'Email or Password incorrect' })
         }
     }
     
@@ -384,7 +384,7 @@ app.get('/test', (req, res, next) => {
 
 app.use((error,req,res,next) => {
     console.log(`ERROR: ${error}`)
-    res.status(500).send('test error')
+    res.status(500).json({ error: 'Internal server error' })
 })
 
 
