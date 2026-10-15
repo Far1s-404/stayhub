@@ -1,8 +1,14 @@
-const express = require ('express');
+const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const cors = require('cors');
+
 const app = express();
+
 app.use(express.json());
+app.use(cors({
+    origin: 'http://localhost:5173'
+}));
 
 const pool = require('./db');
 
@@ -121,32 +127,42 @@ app.route('/rooms/:id')
 
 app.route('/bookings')
 .get(authenticateToken, async(req, res) => {
-   const bookings = await pool.query('SELECT * FROM bookings WHERE user_id = $1', [req.user.userId]);
+   try {
+    const bookings = await pool.query('SELECT bookings.*, rooms.name as room_name, rooms.price as room_price FROM bookings JOIN rooms ON bookings.room_id = rooms.id WHERE bookings.user_id = $1', [req.user.userId]);
     return res.json(bookings.rows);
-    
+   }
+   catch (error) {
+    console.error(error);
+    return res.status(500).send("Internal server error");
+   }
 })
 
 
 
 .post(authenticateToken, async(req, res) => {
-    
+
     if (!req.body.roomId) {
-        return res.status(400).send("Room ID is required");
+        return res.status(400).json({ error: "Room ID is required" });
     }
+
     if (isNaN(req.body.roomId)) {
-        return res.status(400).send("Room ID must be a number");
+        return res.status(400).json({ error: "Room ID must be a number" });
     }
+
     if (!req.body.checkIn) {
-        return res.status(400).send("Check-in date is required");
+        return res.status(400).json({ error: "Check-in date is required" });
     }
+
     if (!req.body.checkOut) {
-        return res.status(400).send("Check-out date is required");
+        return res.status(400).json({ error: "Check-out date is required" });
     }
+
     if (isNaN(Date.parse(req.body.checkIn)) || isNaN(Date.parse(req.body.checkOut))) {
-        return res.status(400).send("Invalid check-in or check-out date");
+        return res.status(400).json({ error: "Invalid check-in or check-out date" });
     }
+
     if (new Date(req.body.checkIn) >= new Date(req.body.checkOut)) {
-        return res.status(400).send("Check-out date must be after check-in date");
+        return res.status(400).json({ error: "Check-out date must be after check-in date" });
     }
 
     
@@ -289,13 +305,19 @@ return res.json(booking.rows[0]);
     if (password.length < 8) {
         return res.status(400).send("Password must be at least 8 characters long");
     }
+//existing email checking
+    const existingUser = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
+        return res.status(409).json({
+        error: "Email already exists"
+    });
+    }
 
 
-
-    const saltRounds = 10
-    const hashedPassword = await bcrypt.hash(password,saltRounds)
     try {
-        const user = await pool.query('INSERT INTO users (name, email, password) VALUES ($1,$2,$3) RETURNING *', [name , email, hashedPassword])
+        const saltRounds = 10
+        const hashedPassword = await bcrypt.hash(password,saltRounds)
+        const user = await pool.query('INSERT INTO users (name, email, password) VALUES ($1,$2,$3) RETURNING id, name, email', [name , email, hashedPassword])
         const newUser = {
         id : user.rows[0].id,
         name : user.rows[0].name,
@@ -316,7 +338,9 @@ return res.json(booking.rows[0]);
 app.post('/users/login', async(req, res) => {
     const user = await pool.query('SELECT * FROM users WHERE email = $1', [req.body.email])
     if (user.rows.length == 0) {
-        return res.status(401).send('Email or Password incorrect')
+        return res.status(401).json({
+        error: "Invalid email or password"
+    });
     }
     else {
         const isMatch = await bcrypt.compare(req.body.password, user.rows[0].password)
