@@ -91,7 +91,7 @@ function App() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || data.message || `Booking failed (${response.status})`);
       setNotice(`${room.name} reserved successfully.`);
-    } catch (error) { setNotice(`${error.message}. Please check the backend response.`); }
+    } catch (error) { setNotice(error.message); }
     finally { setBusy(false); }
   }
 
@@ -123,7 +123,14 @@ function App() {
 
       <section className="search-wrap" aria-label="Search for a stay"><form className="search-panel" onSubmit={(e) => { e.preventDefault(); document.getElementById('stays')?.scrollIntoView({ behavior: 'smooth' }); }}>
         <label className="search-field destination-field"><span className="field-icon"><Search size={19}/></span><span className="field-content"><span className="field-label">WHAT ARE YOU LOOKING FOR?</span><input value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="Room type or keyword" aria-label="Search room type"/></span></label>
-        <label className="search-field"><span className="field-icon"><CalendarDays size={19}/></span><span className="field-content"><span className="field-label">CHECK IN</span><input type="date" min={dateString(today)} value={checkIn} onChange={(e) => setCheckIn(e.target.value)} aria-label="Check in date" required/></span></label>
+        <label className="search-field"><span className="field-icon"><CalendarDays size={19}/></span><span className="field-content"><span className="field-label">CHECK IN</span><input type="date" min={dateString(today)} value={checkIn} onChange={(e) => {
+  const newCheckIn = e.target.value;
+  setCheckIn(newCheckIn);
+
+  if (checkOut && checkOut <= newCheckIn) {
+    setCheckOut('');
+  }
+}} aria-label="Check in date" required/></span></label>
         <label className="search-field"><span className="field-icon"><CalendarDays size={19}/></span><span className="field-content"><span className="field-label">CHECK OUT</span><input type="date" min={checkIn || dateString(today)} value={checkOut} onChange={(e) => setCheckOut(e.target.value)} aria-label="Check out date" required/></span></label>
         <label className="search-field guests-field"><span className="field-icon"><Users size={19}/></span><span className="field-content"><span className="field-label">TRAVELERS</span><select value={guests} onChange={(e) => setGuests(e.target.value)} aria-label="Number of guests"><option>1 guest</option><option>2 guests</option><option>3 guests</option><option>4+ guests</option></select></span><ChevronDown size={15} className="select-chevron"/></label>
         <button className="search-button" type="submit"><Search size={18}/><span>Find a stay</span></button>
